@@ -1,8 +1,23 @@
 # codeviz
 
-Code search, symbol clusters and commit views for C/C++ repos, built on clangd. An Electron app; point it at a repo with a `compile_commands.json`.
+Code searching via symbols / types / functions / files for C/C++ repos using clangd.
+Point it at a repo with a `compile_commands.json`.
 
-Prototype. Linux (x86_64) with Nix only.
+## What's it for
+
+I needed this tool so I could quickly search and try to get back up to speed with my very large game engine codebase that I've been working on with agents heavily for a year. VS Code and other text editors work fine, but at this point I spend far more time just searching and scanning for things on small searches, understanding how a system works after the agents reworked it all again.
+
+This tool is my answer to that. You can click on a commit to see what changed in a simpler (to me) diff view: left is what it was, right is what it is now, no whitespace alignment logic.
+
+The whole tool is a clustered canvas you can pan and zoom around. Zoom out to see names, zoom in to read a chunk of code where the diff was. Click on any indexed symbol/function/type to open it in a new tab showing its cluster. Shift-click to open it in the same tab.
+
+There are several different ways of clustering in the top right of the canvas view; for normal symbols, `by relation` and `by affinity` are my current favorites.
+
+Clicking on a function and seeing callees (functions it calls) to the left, and callers (who calls it) to the right is very handy.
+
+Prototype by Claude Opus 5.5.
+
+Currently NixOS only, but it's an Electron app, and I'll get it more general and working on Windows, plus an AppImage for other Linux distros, eventually.
 
 ## Run without installing
 
