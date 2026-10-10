@@ -1,0 +1,54 @@
+/* Symbol search view. */
+
+#view-search { padding: 12px 14px 0; }
+
+.search { display: flex; flex-direction: column; gap: 8px; }
+#q {
+  width: 100%;
+  padding: 9px 12px;
+  font-size: 16px;
+  font-family: var(--mono);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  outline: none;
+}
+#q:focus { border-color: var(--accent); }
+
+.kinds { display: flex; gap: 6px; flex-wrap: wrap; }
+.kinds button { font-size: 12px; padding: 2px 9px; opacity: 0.45; }
+.kinds button.on { opacity: 1; }
+
+.summary { color: var(--dim); font-size: 12px; padding: 8px 0 4px; }
+
+.results { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
+.results li {
+  display: grid;
+  grid-template-columns: 66px minmax(0, 1fr) auto;
+  gap: 2px 10px;
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--line);
+}
+.results li:hover { background: var(--panel); cursor: pointer; }
+.kind {
+  grid-row: span 2;
+  font-size: 11px;
+  align-self: start;
+  margin-top: 2px;
+  text-align: center;
+  padding: 1px 0;
+  color: #0d1117;
+}
+.name { font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.name .scope { color: var(--dim); }
+.name mark { background: none; color: var(--accent); font-weight: 600; }
+.root { font-size: 11px; color: var(--dim); text-align: right; }
+.detail {
+  grid-column: 2 / 4;
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--dim);
+  min-width: 0;
+}
+.sig { font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.loc { font-family: var(--mono); white-space: nowrap; }

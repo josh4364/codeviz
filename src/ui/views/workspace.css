@@ -1,0 +1,67 @@
+/* Workspace view: index status and the repo form. */
+
+#view-workspace { overflow-y: auto; }
+.ws-page {
+  width: min(760px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 24px;
+}
+.ws-page h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.ws-page label { display: flex; flex-direction: column; gap: 4px; color: var(--dim); font-size: 12px; }
+.ws-page input[type="text"], .ws-page select {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 6px 8px;
+  font-family: var(--mono);
+  font-size: 13px;
+  outline: none;
+}
+.ws-page input[type="text"]:focus { border-color: var(--accent); }
+.row { display: flex; gap: 8px; }
+.row input { flex: 1; }
+.row.end { justify-content: flex-end; }
+.folders-head { font-size: 12px; color: var(--dim); }
+.hint { opacity: 0.7; }
+.folders {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  max-height: 50vh;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.folders li { display: grid; grid-template-columns: 20px minmax(0, 1fr) 56px 90px; align-items: center; gap: 8px; padding: 1px 4px; }
+.folders li:hover { background: var(--raised); }
+.folders li label { flex-direction: row; align-items: center; gap: 8px; color: var(--text); font-size: 13px; cursor: pointer; }
+.folders li.sub label { padding-left: 22px; }
+.folders li.sub .name { color: var(--dim); }
+.folders li.sub:hover .name { color: var(--text); }
+.folders .caret { border: none; background: none; padding: 0; color: var(--dim); width: 20px; text-align: center; font-size: 14px; line-height: 1; }
+.folders button.caret:hover { color: var(--text); background: none; }
+.folders .count { color: var(--dim); text-align: right; }
+.folders .weight { height: 4px; background: var(--line); }
+.folders .weight span { display: block; height: 100%; background: #3d5a80; }
+.row.end { align-items: center; }
+.total { color: var(--dim); font-size: 12px; font-family: var(--mono); margin-right: 8px; }
+.setup-error { color: #f07a7a; font-size: 12px; min-height: 1em; }
+
+/* The open workspace's index: symbol count, and progress while indexing. */
+.index-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-size: 12px;
+  font-family: var(--mono);
+}
+.index-status .bar { flex: 1; max-width: 240px; height: 2px; background: var(--line); overflow: hidden; display: none; }
+.index-status.busy .bar { display: block; }
+#status-bar { height: 100%; width: 0; background: var(--accent); transition: width 0.3s; }

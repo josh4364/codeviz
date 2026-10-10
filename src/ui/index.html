@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>codeviz</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="views/workspace.css" />
+    <link rel="stylesheet" href="views/search.css" />
+    <link rel="stylesheet" href="views/clusters.css" />
+    <link rel="stylesheet" href="views/changes.css" />
+    <link rel="stylesheet" href="views/settings.css" />
+  </head>
+  <body>
+    <header>
+      <div class="workspace">
+        <span id="ws-name">no workspace</span>
+      </div>
+    </header>
+
+    <div class="body">
+      <button id="sidebar-toggle" title="Hide the sidebar (Ctrl+B)">‹</button>
+      <nav id="sidebar">
+        <button data-view="workspace">Workspace</button>
+        <button data-view="search">Symbol search</button>
+        <button data-view="clusters">Clusters</button>
+        <button data-view="changes">Changes</button>
+        <button data-view="settings" class="bottom">Settings</button>
+      </nav>
+
+      <main id="view-workspace" class="view">
+        <div class="ws-page">
+          <h2>Workspace</h2>
+          <div id="index-status" class="index-status">
+            <span id="status-text"></span>
+            <div class="bar"><div id="status-bar"></div></div>
+          </div>
+          <label>Repository
+            <div class="row">
+              <input id="setup-root" type="text" spellcheck="false" placeholder="/path/to/repo" />
+              <button id="setup-browse">Browse…</button>
+              <button id="setup-inspect">Look</button>
+            </div>
+          </label>
+          <label>Compile database
+            <select id="setup-cdb"></select>
+          </label>
+          <div class="folders-head">Folders to index <span class="hint">(files in the compile database)</span></div>
+          <ul id="setup-folders" class="folders"></ul>
+          <div class="folders-head">External headers <span class="hint">(include folders outside the repo, such as the Nix store; headers only)</span></div>
+          <ul id="setup-externals" class="folders"></ul>
+          <div class="setup-error" id="setup-error"></div>
+          <div class="row end">
+            <span id="setup-total" class="total"></span>
+            <button id="setup-open" class="primary">Save and index</button>
+          </div>
+        </div>
+      </main>
+
+      <main id="view-settings" class="view" hidden>
+        <div class="set-page">
+          <h2>Settings</h2>
+          <div id="set-form"></div>
+        </div>
+      </main>
+
+      <main id="view-search" class="view" hidden>
+        <div class="search">
+          <input id="q" type="search" placeholder="Search functions and types…" autocomplete="off" spellcheck="false" />
+          <div id="kinds" class="kinds"></div>
+        </div>
+        <div id="summary" class="summary"></div>
+        <ol id="results" class="results"></ol>
+      </main>
+
+      <main id="view-changes" class="view" hidden>
+        <div class="ch-bar">
+          <input id="ch-rev" type="search" placeholder="Commit, A..B, or main...branch for a PR" autocomplete="off" spellcheck="false" />
+          <button id="ch-open">Open</button>
+        </div>
+        <div class="ch-hint">Click a commit to see it in Clusters: before and after side by side, biggest changes first.</div>
+        <ol id="ch-list" class="ch-list"></ol>
+      </main>
+
+      <main id="view-clusters" class="view" hidden>
+        <div class="cl-bar">
+          <div id="cl-tabs" class="cl-tabs"></div>
+        </div>
+        <div id="cl-viewport" class="cl-viewport">
+          <canvas id="cl-canvas" class="cl-canvas"></canvas>
+          <article id="cl-doc" class="cl-doc" hidden></article>
+          <div class="cl-tools">
+            <div class="cl-find">
+              <input id="cl-q" type="search" placeholder="Open a symbol…" autocomplete="off" spellcheck="false" />
+              <ol id="cl-hits" class="cl-hits" hidden></ol>
+            </div>
+            <select id="cl-layout" title="Layout"></select>
+            <button id="cl-fit" title="Fit everything in view (Home or F)">Fit</button>
+          </div>
+          <div id="cl-empty" class="cl-empty">Search a type or function above, or click a result in Symbol search.<br />Click a name in a box to open it in a new tab; shift-click to add it to this one.</div>
+          <div id="cl-info" class="cl-info"></div>
+        </div>
+      </main>
+    </div>
+
+    <script src="vendor/marked.min.js"></script>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

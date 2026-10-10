@@ -1,0 +1,142 @@
+:root {
+  color-scheme: dark;
+  --bg: #0c0d10;
+  --panel: #121418;
+  --raised: #1a1d22;
+  --line: #24272e;
+  --text: #d7dae0;
+  --dim: #7d838f;
+  --accent: #6aa8ff;
+  --mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+  --k-function: #7cc4a0;
+  --k-method: #7cc4a0;
+  --k-struct: #e0b46a;
+  --k-class: #e0b46a;
+  --k-union: #d79a6a;
+  --k-enum: #c99ae0;
+  --k-typedef: #8fb0d8;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 system-ui, sans-serif;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+button, input, select { font: inherit; color: inherit; }
+
+button {
+  background: var(--raised);
+  border: 1px solid var(--line);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+button:focus:not(:focus-visible) { outline: none; }
+button:hover { border-color: #3a3f48; background: #20242a; }
+button.primary { background: var(--accent); color: #0d1117; border-color: var(--accent); }
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  height: 34px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+  font-size: 12px;
+}
+.workspace { display: flex; gap: 6px; align-items: center; min-width: 0; }
+#ws-name { font-family: var(--mono); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+#ws-name:hover { color: var(--text); }
+.body { position: relative; flex: 1; display: flex; min-height: 0; }
+
+/* The sidebar's collapse arrow: its top right corner, or the view's top left
+   corner while the sidebar is hidden. */
+#sidebar-toggle {
+  position: absolute;
+  z-index: 20;
+  top: 0;
+  left: 122px;
+  width: 28px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--dim);
+  font-size: 18px;
+  line-height: 1;
+}
+#sidebar-toggle:hover { color: var(--text); background: var(--raised); }
+.body.collapsed #sidebar-toggle { left: 0; }
+.body.collapsed .cl-bar { padding-left: 32px; }
+.body.collapsed > main.view:not(#view-clusters) { padding-left: 36px; }
+
+#sidebar {
+  width: 150px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  padding: 34px 0 8px;
+  background: var(--bg);
+  border-right: 1px solid var(--line);
+}
+#sidebar[hidden] { display: none; }
+#sidebar button {
+  text-align: left;
+  border: none;
+  border-left: 2px solid transparent;
+  background: none;
+  color: var(--dim);
+  padding: 7px 14px;
+  font-size: 13px;
+}
+#sidebar button:hover { color: var(--text); background: var(--panel); }
+#sidebar button.bottom { margin-top: auto; }
+#sidebar button.on { color: var(--text); border-left-color: var(--accent); background: var(--panel); }
+
+.view { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.view[hidden] { display: none; }
+
+
+/* Context menus (dom.js showMenu). */
+.menu {
+  position: fixed;
+  z-index: 100;
+  min-width: 190px;
+  padding: 3px 0;
+  display: flex;
+  flex-direction: column;
+  background: rgba(18, 20, 24, 0.92);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+  font-size: 12px;
+}
+.menu button { border: none; background: none; text-align: left; padding: 5px 14px; }
+.menu button:hover:not(:disabled) { background: var(--accent); color: #0d1117; }
+.menu button:disabled { color: #4a4f58; cursor: default; }
+.menu .sep { height: 1px; margin: 3px 0; background: var(--line); }
+
+/* Transparent mode (the transparent setting): the desktop shows through. The
+   canvas has no background, and the shell is var(--bg) at --shell-alpha. */
+html.transparent, html.transparent body { background: transparent; }
+html.transparent {
+  --shell: color-mix(in srgb, var(--bg) calc(var(--shell-alpha, 0.75) * 100%), transparent);
+}
+html.transparent header,
+html.transparent #sidebar,
+html.transparent .cl-bar,
+html.transparent #view-workspace,
+html.transparent #view-search,
+html.transparent #view-changes,
+html.transparent #view-settings { background: var(--shell); }
+html.transparent .cl-tab.on { background: transparent; }
+html.transparent .cl-viewport { background: rgba(0, 0, 0, var(--canvas-alpha, 0.5)); }
+html.no-grid:not(.transparent) .cl-viewport { background: #000; }
