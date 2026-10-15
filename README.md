@@ -56,3 +56,19 @@ codeviz --workspace ~/src/myrepo --roots src,lib
 ```
 
 Indexes and caches live in `~/.local/share/codeviz`, settings in `~/.config/codeviz`. Nothing is written into the target repo.
+
+## Projector / Claude Code
+
+A running codeviz can be driven by an agent: Claude Code tells it what to show (a file and line range, a symbol's cluster, a commit or the uncommitted changes, a search) so you can watch what it works on, look at something before a decision, or inspect the finished diff. It never starts on its own; start it yourself, or ask the agent to (its `open` tool).
+
+```sh
+claude mcp add --scope user codeviz -- codeviz-mcp
+```
+
+The tools are `open`, `show_diff`, `show_file`, `show_symbol`, `search`, `screenshot` and `state`. Each view replaces one tab marked ▶; your own tabs stay. The repo is the agent's git root; it must be a saved workspace (set it up once on the Workspace page). From a checkout without installing, register `scripts/mcp.sh` instead of `codeviz-mcp`.
+
+Without MCP, the same commands are an HTTP call: the port is in `~/.local/state/codeviz/server.json`.
+
+```sh
+curl -X POST localhost:<port>/api/view -d '{"cmd":"file","path":"src/main.c","line":40,"endLine":60}'
+```

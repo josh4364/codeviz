@@ -14,6 +14,7 @@ const LN = 5; // line number columns
 const GUTTER = 3;
 const SLIM = 11; // width of the "new" / "deleted" column
 const MAX_CODE_COLS = 140;
+const MAX_FILE_COLS = 200;
 const MAX_BODY_LINES = 14;
 const KIND_SHORT = { function: "fn", method: "method", struct: "struct", class: "class", union: "union", enum: "enum", typedef: "typedef" };
 const CHANGE_COLOUR = { added: "add", deleted: "del", modified: "mod", moved: "move" };
@@ -29,6 +30,40 @@ export function diffBoxes(d) {
   if (d.addedFiles.length) boxes.push(addedFilesBox(d, firstBoxOf));
   for (const g of d.fileGroups) boxes.push(fileGroupBox(g, d));
   return [...boxes, ...entryBoxes];
+}
+
+// ---- a source file (the projector's file command) ---------------------------
+
+const C_FILE = /\.(c|cc|cpp|cxx|h|hh|hpp|hxx|inl|ipp|m|mm)$/i;
+
+/**
+ * One box with a file's lines `first`..`first + lines.length - 1` (1-based):
+ * line numbers, C/C++ colours for a C/C++ path (plain text otherwise), and
+ * lines `from`..`to` tinted. `links` makes symbol names clickable.
+ */
+export function fileBox(file, lines, first, from, to, links) {
+  const tokens = C_FILE.test(file) ? tokenize(lines.join("\n"), links, null) : lines.map((l) => (l ? [{ col: 0, text: l, cls: "" }] : []));
+  const rows = lines.map((_, i) => {
+    const n = first + i;
+    const ln = String(n);
+    const row = { tokens: [{ col: LN - 1 - ln.length, text: ln, cls: "ln" }], bands: [] };
+    if (from && n >= from && n <= to) row.bands.push({ col: 0, cols: Infinity, colour: "markBg" });
+    for (const t of tokens[i] ?? []) if (t.col < MAX_FILE_COLS) row.tokens.push({ ...t, col: LN + 1 + t.col });
+    return row;
+  });
+  const name = file.split("/").pop();
+  const range = from ? (to > from ? `${from}–${to}` : `${from}`) : "";
+  return box({
+    id: `file:${file}`,
+    name,
+    kind: "file",
+    accent: "move",
+    header: { chip: "file", chipColour: "#8a909c", name, tags: range ? [{ text: range, fill: true, colour: "move" }] : [], right: file },
+    rows,
+    block: { file, start: first },
+    change: "file",
+    minCols: 60,
+  });
 }
 
 // ---- a change ---------------------------------------------------------------

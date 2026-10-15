@@ -43,6 +43,10 @@
           makeWrapper ${pkgs.electron}/bin/electron $out/bin/codeviz \
             --add-flags $out/lib/codeviz \
             --prefix PATH : ${lib.makeBinPath [ pkgs.clang-tools ]}
+          # The MCP server for Claude Code (stdio): node running dist/main/mcp.js. It finds
+          # bin/codeviz next to it to start the app (src/main/mcp.ts, launcher()).
+          makeWrapper ${pkgs.nodejs_22}/bin/node $out/bin/codeviz-mcp \
+            --add-flags $out/lib/codeviz/dist/main/mcp.js
           install -Dm644 assets/codeviz.svg $out/share/icons/hicolor/scalable/apps/codeviz.svg
           # StartupWMClass matches the class main.ts sets, so the launcher ties the window to this entry.
           mkdir -p $out/share/applications

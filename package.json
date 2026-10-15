@@ -8,6 +8,7 @@
   "scripts": {
     "build": "tsc -p .",
     "start": "tsc -p . && $CODEVIZ_ELECTRON .",
+    "mcp": "tsc -p . && node dist/main/mcp.js",
     "probe": "tsc -p tsconfig.scripts.json && node dist/scripts/scripts/probe.js"
   },
   "dependencies": {

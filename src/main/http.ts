@@ -6,7 +6,7 @@ import * as path from "path";
 import { AddressInfo } from "net";
 import { buildCluster } from "./cluster";
 import { buildDiff, fileAt, recentCommits } from "./diff";
-import { SymbolIndex, SymKind } from "./index";
+import { identifiers, SymbolIndex, SymKind } from "./index";
 import { externalCandidates, findCompileDbs, folderCandidates, loadStore, saveWorkspace, WorkspaceConfig } from "./workspace";
 import { DEFAULTS, saveSettings, Settings, settings, settingsPath } from "./settings";
 
@@ -15,6 +15,8 @@ export interface ServerHooks {
   pickFolder?: () => Promise<string | null>;
   // After the settings are saved, with the old ones.
   settingsChanged?: (now: Settings, before: Settings) => void;
+  /** Runs a projector command (POST /api/view); returns the HTTP code and JSON body. */
+  view?: (body: any) => Promise<{ code: number; body: unknown }>;
 }
 
 const MIME: Record<string, string> = {
@@ -50,6 +52,16 @@ export class Server {
     saveWorkspace(cfg);
     this.index = new SymbolIndex(cfg);
     void this.index.start();
+  }
+
+  /** The open workspace, or null. */
+  get workspace(): WorkspaceConfig | null {
+    return this.index?.cfg ?? null;
+  }
+
+  /** The index phase ("starting", "symbols", "ready", "error"), or null with no workspace. */
+  get phase(): string | null {
+    return this.index?.refreshStatus().phase ?? null;
   }
 
   async close(): Promise<void> {
@@ -99,8 +111,18 @@ export class Server {
     if (p === "/api/file" && req.method === "GET") {
       if (!this.index) return send(res, 409, { error: "no workspace open" });
       try {
-        const text = await fileAt(this.index.cfg.root, url.searchParams.get("rev") ?? "", url.searchParams.get("path") ?? "");
-        return send(res, 200, { text });
+        const root = this.index.cfg.root;
+        const rel = path.relative(root, path.resolve(root, url.searchParams.get("path") ?? ""));
+        const text = await fileAt(root, url.searchParams.get("rev") ?? "", rel);
+        // ?links=1: the identifiers that name a symbol, so the UI can make them clickable.
+        const links: Record<string, { id: string; kind: SymKind }> = {};
+        if (url.searchParams.get("links")) {
+          for (const n of new Set(identifiers(text))) {
+            const s = this.index.named(n)[0];
+            if (s) links[n] = { id: s.id, kind: s.kind };
+          }
+        }
+        return send(res, 200, { text, path: rel, links });
       } catch (e) {
         return send(res, 404, { error: String((e as Error).message) });
       }
@@ -167,6 +189,18 @@ export class Server {
       if (!this.index) return send(res, 409, { error: "no workspace open" });
       void this.index.scan();
       return send(res, 200, { ok: true });
+    }
+
+    if (p === "/api/view" && req.method === "POST") {
+      if (!this.hooks.view) return send(res, 501, { error: "no window to drive" });
+      let body;
+      try {
+        body = await readJson(req);
+      } catch {
+        return send(res, 400, { error: "the body is not JSON" });
+      }
+      const r = await this.hooks.view(body);
+      return send(res, r.code, r.body);
     }
 
     if (p === "/api/pick-folder" && req.method === "POST") {

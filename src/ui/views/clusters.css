@@ -43,6 +43,7 @@
 .cl-tab:hover:not(.on) { color: var(--text); background: var(--panel); }
 .cl-tab.dragging { z-index: 2; background: var(--raised); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6); }
 .cl-tab.on { background: #000; color: var(--text); border-color: var(--line); border-top: 2px solid var(--accent); }
+.cl-tab.proj > span:first-child { color: var(--accent); }
 .cl-tab .x { flex: none; border: none; background: none; padding: 0 5px; color: var(--dim); visibility: hidden; }
 .cl-tab:hover .x, .cl-tab.on .x { visibility: visible; }
 .cl-tab .x:hover { color: var(--text); background: var(--raised); }

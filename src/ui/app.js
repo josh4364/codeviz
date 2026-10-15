@@ -4,7 +4,7 @@
 import { $, api } from "./dom.js";
 import { initWorkspace, openWorkspaceForm, showWorkspace } from "./views/workspace.js";
 import { initSearch, runSearch, showSearch } from "./views/search.js";
-import { activeBoxes, benchZoom, clusterPlace, clusterReady, initClusters, lookAt, openCluster, openDiff, openDoc, restoreClusterPlace, setLayout, showClusters } from "./views/clusters.js";
+import { activeBoxes, activeTabInfo, benchZoom, clusterPlace, clusterReady, initClusters, lookAt, openCluster, openDiff, openDoc, openFile, restoreClusterPlace, setLayout, showClusters } from "./views/clusters.js";
 import { initChanges, showChanges } from "./views/changes.js";
 import { initSettings, showSettings } from "./views/settings.js";
 import { setCacheBudget } from "./render.js";
@@ -27,9 +27,9 @@ const shell = {
     showView("clusters");
     return openCluster(id, opts);
   },
-  openDiff: (rev) => {
+  openDiff: (rev, opts) => {
     showView("clusters");
-    return openDiff(rev);
+    return openDiff(rev, opts);
   },
 };
 
@@ -87,6 +87,49 @@ function renderStatus() {
   $("index-status").classList.toggle("busy", !!s && (s.phase !== "ready" || !!s.clangdIndex?.active));
 }
 
+// ---- the projector (POST /api/view, through main.ts) ------------------------
+
+/**
+ * Runs one projector command in the page: diff, file, symbol or search (see
+ * main.ts). Display commands replace the ▶ projector tab unless `newTab`.
+ * Returns { ok, ... } or { error }; never throws.
+ */
+async function project(cmd, a = {}) {
+  const opts = { projector: true, newTab: !!a.newTab };
+  try {
+    if (cmd === "diff") {
+      if (a.layout) setLayout(a.layout);
+      await shell.openDiff(a.rev, opts);
+    } else if (cmd === "file") {
+      if (/\.(md|markdown)$/i.test(a.path)) {
+        showView("clusters");
+        await openDoc(a.path, "", opts);
+      } else {
+        showView("clusters");
+        const r = await openFile(a.path, a.line ?? 0, a.endLine ?? 0, opts);
+        await clusterReady();
+        return { ok: true, ...r, tab: activeTabInfo() };
+      }
+    } else if (cmd === "symbol") {
+      if (a.layout) setLayout(a.layout);
+      const r = await api(`/api/cluster?name=${encodeURIComponent(a.name)}`);
+      await shell.openCluster(r.focus, { cluster: r, ...opts });
+      const focus = r.items.find((i) => i.sym.id === r.focus)?.sym;
+      await clusterReady();
+      return { ok: true, symbol: focus ? { name: focus.name, kind: focus.kind } : null, boxes: r.items.length, tab: activeTabInfo() };
+    } else if (cmd === "search") {
+      showView("search");
+      $("q").value = a.query;
+      await runSearch();
+      return { ok: true, view: "search", results: document.querySelectorAll("#results > *").length };
+    } else return { error: `unknown command: ${cmd}` };
+    await clusterReady();
+    return { ok: true, tab: activeTabInfo() };
+  } catch (e) {
+    return { error: String(e?.message ?? e) };
+  }
+}
+
 // ---- hooks for main.ts --shot ---------------------------------------------
 
 window.codeviz = {
@@ -111,6 +154,11 @@ window.codeviz = {
     showView("clusters");
     await openDoc(path, rev);
   },
+  project,
+  // Reads the server state now (after the projector switched workspaces).
+  refresh: pollState,
+  // The view and tab the user sees, for the projector's state command.
+  where: () => ({ view: state.view, tab: state.view === "clusters" ? activeTabInfo() : null }),
   ready: clusterReady,
   look: lookAt,
   boxes: activeBoxes,

@@ -8,16 +8,20 @@
 //   numpad .            frame the selected box (or the tab's focus)
 //   Home, F             fit everything
 //
+// The projector (an agent driving the app over POST /api/view) opens its views
+// with { projector: true }: they replace the one projector tab, marked ▶,
+// instead of adding tabs; { newTab: true } keeps the old one as a plain tab.
+//
 // A commit tab (openDiff) holds the boxes of a diff (diffboxes.js) instead,
 // with its own layouts; names in it still open symbol clusters.
 
 import { $, api, el, highlight, showMenu } from "../dom.js";
 import { identifiersIn } from "../code.js";
-import { diffBoxes } from "../diffboxes.js";
+import { diffBoxes, fileBox } from "../diffboxes.js";
 import { DIFF_LAYOUTS, layout, LAYOUTS, placeNear } from "../layout.js";
 import { navigating } from "../nav.js";
 import { renderMarkdown } from "../markdown.js";
-import { BOX_PAD, HEAD_H, metrics, Renderer } from "../render.js";
+import { BOX_PAD, HEAD_H, LINE_H, metrics, Renderer } from "../render.js";
 
 const MAX_COLS = 160;
 const FRAME_PAD = 28;
@@ -167,23 +171,82 @@ function layoutKey() {
  * Opens a markdown file, rendered, in a new tab: at `rev`, or on disk when
  * `rev` is "". Its links to other repo files open those the same way.
  */
-export async function openDoc(path, rev = "") {
+export async function openDoc(path, rev = "", opts = {}) {
   navigating();
   let r;
   try {
     r = await api(`/api/file?${new URLSearchParams({ path, rev })}`);
   } catch (e) {
     info(e.message);
+    if (opts.projector) throw e;
     return;
   }
   const name = path.split("/").pop();
   const t = { id: state.nextTab++, title: rev ? `${name} @ ${rev.slice(0, 9)}` : name, doc: { path, rev, html: renderMarkdown(r.text, path) }, clusters: [], boxes: new Map(), cam: null, layout: layoutKey(), selected: null };
-  state.tabs.push(t);
+  pushTab(t, opts);
   activate(t.id);
 }
 
+const FILE_MAX_LINES = 4000;
+
+/**
+ * Opens a source file from disk as one box (projector `file`): lines
+ * `line`..`endLine` tinted and framed. A file over FILE_MAX_LINES shows the
+ * window around the range. Returns { path, lines, shown }.
+ */
+export async function openFile(path, line = 0, endLine = 0, opts = {}) {
+  navigating();
+  const r = await api(`/api/file?${new URLSearchParams({ path, rev: "", links: "1" })}`);
+  const all = r.text.replace(/\n$/, "").split("\n");
+  const from = line > 0 ? Math.min(line, all.length) : 0;
+  const to = from ? Math.min(Math.max(endLine || from, from), all.length) : 0;
+  let first = 1;
+  if (all.length > FILE_MAX_LINES) first = Math.max(1, Math.min((from || 1) - FILE_MAX_LINES / 2, all.length - FILE_MAX_LINES + 1));
+  const lines = all.slice(first - 1, first - 1 + FILE_MAX_LINES).map((l) => l.replace(/\t/g, "    "));
+  const b = fileBox(r.path ?? path, lines, first, from, to, r.links ?? {});
+  const title = from ? `${b.sym.name}:${from}` : b.sym.name;
+  const t = { id: state.nextTab++, title, clusters: [], boxes: new Map(), cam: null, layout: layoutKey(), selected: null };
+  const cl = { focus: b.id, title, links: r.links ?? {}, dropped: 0, partial: false, fixed: true, anchor: null, boxes: [b] };
+  b.cluster = cl;
+  t.boxes.set(b.id, b);
+  t.clusters.push(cl);
+  place(t, cl);
+  // The range at a readable size (zoomed out to fit a long one), else the file's top.
+  const y0 = b.y + HEAD_H + BOX_PAD + ((from || first) - first) * LINE_H;
+  const h = from ? (to - from + 1) * LINE_H : Math.min(b.h, 40 * LINE_H);
+  t.cam = camFor({ x: b.x - 20, y: y0 - 3 * LINE_H, w: Math.min(b.w, 1100) + 40, h: h + 6 * LINE_H }, 1);
+  pushTab(t, opts);
+  activate(t.id);
+  return { path: b.block.file, lines: all.length, shown: [first, first + lines.length - 1] };
+}
+
+/** Adds tab `t`; a projector tab replaces the old projector tab in place unless `newTab`. */
+function pushTab(t, { projector = false, newTab = false } = {}) {
+  if (!projector) {
+    state.tabs.push(t);
+    return;
+  }
+  t.projector = true;
+  t.title = `▶ ${t.title}`;
+  const i = state.tabs.findIndex((o) => o.projector);
+  if (i < 0) state.tabs.push(t);
+  else if (!newTab) state.tabs[i] = t;
+  else {
+    const old = state.tabs[i];
+    old.projector = false;
+    old.title = old.title.replace(/^▶ /, "");
+    state.tabs.push(t);
+  }
+}
+
+/** What the projector reports as the current tab. */
+export function activeTabInfo() {
+  const t = activeTab();
+  return t ? { title: t.title, projector: !!t.projector, tabs: state.tabs.length } : null;
+}
+
 /** Opens a commit, range or the working tree ("") in a new commit tab. */
-export async function openDiff(rev) {
+export async function openDiff(rev, opts = {}) {
   navigating();
   info(`reading the changes of ${rev || "the working tree"}…`);
   let d;
@@ -191,6 +254,7 @@ export async function openDiff(rev) {
     d = await api(`/api/diff?rev=${encodeURIComponent(rev)}`);
   } catch (e) {
     info(e.message);
+    if (opts.projector) throw e;
     return;
   }
   const boxes = diffBoxes(d);
@@ -204,7 +268,7 @@ export async function openDiff(rev) {
   }
   t.clusters.push(cl);
   place(t, cl);
-  state.tabs.push(t);
+  pushTab(t, opts);
   activate(t.id);
   info(`${d.entries.length} changes in ${d.files.length} files · built in ${(d.ms / 1000).toFixed(1)} s · Home to fit, numpad . for the summary`);
 }
@@ -213,7 +277,7 @@ export async function openDiff(rev) {
  * Opens the cluster of symbol `id`: in a new tab, or with `add` in the active
  * one next to `anchor` (a box id). `cluster` skips the fetch.
  */
-export async function openCluster(id, { add = false, anchor = null, cluster = null } = {}) {
+export async function openCluster(id, { add = false, anchor = null, cluster = null, projector = false, newTab = false } = {}) {
   if (!add) navigating();
   const tab = activeTab();
   if (add && tab) {
@@ -236,7 +300,7 @@ export async function openCluster(id, { add = false, anchor = null, cluster = nu
   if (!c) return;
   const focus = c.items.find((i) => i.sym.id === c.focus);
   const t = { id: state.nextTab++, title: focus?.sym.name ?? "?", clusters: [], boxes: new Map(), cam: null, layout: layoutKey(), selected: null };
-  state.tabs.push(t);
+  pushTab(t, { projector, newTab });
   appendCluster(t, c, null, false);
   activate(t.id);
 }
@@ -344,7 +408,7 @@ function renderTabs() {
     ...state.tabs.map((t) =>
       el(
         "div",
-        { class: t.id === state.active ? "cl-tab on" : "cl-tab", "data-tab": String(t.id), title: t.clusters.map((c) => c.title).join(" + ") },
+        { class: `cl-tab${t.id === state.active ? " on" : ""}${t.projector ? " proj" : ""}`, "data-tab": String(t.id), title: t.clusters.map((c) => c.title).join(" + ") },
         el("span", {}, t.clusters.length > 1 ? `${t.title} +${t.clusters.length - 1}` : t.title),
         el("button", { class: "x", "data-close": String(t.id), title: "Close (middle-click)" }, "×"),
       ),
@@ -466,6 +530,15 @@ function refsOf(text, links) {
 
 /** Lays out one cluster and puts its frame outside the tab's earlier clusters. */
 function place(tab, cl) {
+  // A file box is not laid out: it sits at the origin.
+  if (cl.fixed) {
+    const b = cl.boxes[0];
+    b.x = FRAME_PAD;
+    b.y = FRAME_PAD + FRAME_LABEL;
+    cl.frame = { label: cl.title, x: 0, y: 0, w: b.w + FRAME_PAD * 2, h: b.h + FRAME_PAD * 2 + FRAME_LABEL };
+    cl.groups = [];
+    return;
+  }
   const l = layout(cl.diff ? state.diffLayout : state.layout, cl.boxes, cl.focus);
   const fw = l.w + FRAME_PAD * 2;
   const fh = l.h + FRAME_PAD * 2 + FRAME_LABEL;

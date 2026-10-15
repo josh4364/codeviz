@@ -64,6 +64,8 @@ const COLOURS = {
   addHi: "rgba(46, 160, 67, 0.42)",
   delHi: "rgba(248, 81, 73, 0.4)",
   foldBg: "rgba(255, 255, 255, 0.04)",
+  // The line range a projector file box points at.
+  markBg: "rgba(106, 168, 255, 0.2)",
   gutter: "rgba(255, 255, 255, 0.025)",
   head: "#e8eaf0",
 };
