@@ -219,7 +219,8 @@ const fail = (code: number, error: string) => ({ code, body: { error } });
 
 /**
  * One projector command, POST /api/view { cmd, repo?, newTab?, focus?, ... }:
- *   diff {rev, layout?}           a commit tab: a sha, A..B, main...branch or "worktree"
+ *   diff {rev, layout?, symbol?, path?}  a commit tab: a sha, A..B, main...branch or "worktree";
+ *                                 with symbol and/or path, only those changed symbols' before | after boxes
  *   file {path, line?, endLine?}  a source file as a box, the range tinted and framed (a .md opens as a doc)
  *   symbol {name, layout?}        that symbol's cluster
  *   search {query}                Symbol search
@@ -266,7 +267,13 @@ async function view(b: any): Promise<{ code: number; body: unknown }> {
   }
 
   const ARGS: Record<string, (b: any) => string | object> = {
-    diff: (b) => (b.rev ? { rev: String(b.rev), layout: b.layout ?? null } : "diff needs rev"),
+    diff: (b) => {
+      if (!b.rev) return "diff needs rev";
+      // `path` narrows the diff to a file or folder (repo-relative or absolute).
+      const rel = b.path ? path.relative(ws!.root, path.resolve(ws!.root, String(b.path))) : undefined;
+      if (rel && (rel.startsWith("..") || path.isAbsolute(rel))) return `${b.path} is outside the workspace ${ws!.root}`;
+      return { rev: String(b.rev), layout: b.layout ?? null, symbol: b.symbol ? String(b.symbol) : undefined, path: rel };
+    },
     file: (b) => {
       if (!b.path) return "file needs path";
       const abs = path.resolve(ws!.root, String(b.path));
@@ -297,7 +304,7 @@ async function view(b: any): Promise<{ code: number; body: unknown }> {
   if (r?.error && cmd === "diff" && /unknown revision|bad revision|ambiguous argument/.test(r.error)) {
     return fail(400, `bad rev "${(a as any).rev}": not a commit, range or "worktree" in ${ws.root}`);
   }
-  if (r?.error) return fail(/^no symbol|^no file|not found/i.test(r.error) ? 404 : 400, r.error);
+  if (r?.error) return fail(/^no change to|^no symbol|^no file|not found/i.test(r.error) ? 404 : 400, r.error);
   return ok({ cmd, workspace: ws.root, ...r });
 }
 

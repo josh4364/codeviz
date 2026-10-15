@@ -44,12 +44,15 @@ const TOOLS: Tool[] = [
     description:
       "Show a commit, range or the uncommitted changes in the user's codeviz window, as side-by-side boxes per changed function or type. " +
       "Use it when the user asks to see changes, to show a change before asking the user to decide, or after finishing work (rev \"worktree\" for uncommitted work, \"HEAD\" for the last commit) so the user can inspect it. " +
-      "rev: a sha, \"A..B\", \"main...branch\" (a PR) or \"worktree\".",
+      "rev: a sha, \"A..B\", \"main...branch\" (a PR) or \"worktree\". " +
+      "Give symbol (and/or path) to show only that function's or type's change, before | after, e.g. to discuss one edit; if it did not change, the error lists the symbols that did.",
     inputSchema: {
       type: "object",
       properties: {
         rev: { type: "string", description: "A sha, A..B, main...branch, or \"worktree\"." },
-        layout: { type: "string", enum: ["impact", "change", "diff-file", "diff-folder"], description: "Box layout; default impact (biggest changes first)." },
+        symbol: { type: "string", description: "Show only this symbol's change (plain or qualified name)." },
+        path: { type: "string", description: "Only changes in this file or folder (repo-relative or absolute); with symbol, narrows it; alone, shows that file's changed symbols." },
+        layout: { type: "string", enum: ["impact", "change", "diff-file", "diff-folder"], description: "Box layout of a whole diff; default impact (biggest changes first)." },
         newTab: NEW_TAB,
         focus: FOCUS,
       },
@@ -234,7 +237,7 @@ async function callTool(name: string, a: any): Promise<Content[] & { isError?: b
     case "open":
       return open(!!a.focus);
     case "show_diff":
-      return result(await view({ cmd: "diff", rev: a.rev, layout: a.layout, ...common }));
+      return result(await view({ cmd: "diff", rev: a.rev, layout: a.layout, symbol: a.symbol, path: a.path ? path.resolve(repoRoot(), a.path) : undefined, ...common }));
     case "show_file":
       return result(await view({ cmd: "file", path: a.path ? path.resolve(repoRoot(), a.path) : a.path, line: a.line, endLine: a.endLine, ...common }));
     case "show_symbol":

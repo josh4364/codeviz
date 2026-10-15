@@ -99,7 +99,9 @@ async function project(cmd, a = {}) {
   try {
     if (cmd === "diff") {
       if (a.layout) setLayout(a.layout);
-      await shell.openDiff(a.rev, opts);
+      const r = await shell.openDiff(a.rev, { ...opts, symbol: a.symbol, path: a.path });
+      await clusterReady();
+      return { ok: true, ...r, tab: activeTabInfo() };
     } else if (cmd === "file") {
       if (/\.(md|markdown)$/i.test(a.path)) {
         showView("clusters");

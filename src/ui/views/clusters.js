@@ -257,9 +257,10 @@ export async function openDiff(rev, opts = {}) {
     if (opts.projector) throw e;
     return;
   }
-  const boxes = diffBoxes(d);
   const one = d.commits.length === 1 ? d.commits[0] : null;
   const title = one ? `${one.short} ${one.subject.slice(0, 32)}` : d.head === null ? "working tree" : d.label;
+  if (opts.symbol || opts.path) return openSymbolDiff(d, title, opts);
+  const boxes = diffBoxes(d);
   const t = { id: state.nextTab++, title: `Δ ${title}`, diff: d.label, clusters: [], boxes: new Map(), cam: null, layout: layoutKey(), selected: null };
   const cl = { focus: boxes[0].id, title: `Δ ${title}`, links: d.links, dropped: d.dropped, partial: false, diff: true, anchor: null, boxes };
   for (const b of boxes) {
@@ -271,6 +272,53 @@ export async function openDiff(rev, opts = {}) {
   pushTab(t, opts);
   activate(t.id);
   info(`${d.entries.length} changes in ${d.files.length} files · built in ${(d.ms / 1000).toFixed(1)} s · Home to fit, numpad . for the summary`);
+}
+
+/**
+ * The projector's diff with `symbol` and/or `path`: only the changed symbols
+ * that match (a plain name also matches `ns::name`; `path` is a file or folder
+ * prefix), as before | after boxes stacked in a frame named after the commit.
+ * Throws, listing the changed symbols, when nothing matches.
+ */
+function openSymbolDiff(d, title, opts) {
+  const q = opts.symbol;
+  const named = (e) => !q || e.name === q || e.name.endsWith(`::${q}`);
+  const inPath = (e) => !opts.path || e.file === opts.path || e.file.startsWith(opts.path.replace(/\/?$/, "/"));
+  const symbols = d.entries.filter((e) => e.type === "symbol");
+  const hits = (q ? symbols : d.entries).filter((e) => named(e) && inPath(e));
+  if (!hits.length) {
+    const names = [...new Set(symbols.filter(inPath).map((e) => e.name))];
+    const what = [q && `symbol ${q}`, opts.path && `in ${opts.path}`].filter(Boolean).join(" ");
+    const list = names.length ? `; changed symbols${opts.path ? ` in ${opts.path}` : ""}: ${names.slice(0, 30).join(", ")}${names.length > 30 ? `, … (${names.length} in all)` : ""}` : "; it changes no symbols there";
+    throw new Error(`no change to ${what} in ${d.label}${list}`);
+  }
+  // diffBoxes puts the commit card first; only the entry boxes are wanted.
+  const boxes = diffBoxes({ ...d, entries: hits, deletedFiles: [], addedFiles: [], fileGroups: [] }).slice(1);
+  const label = `Δ ${q ?? opts.path} · ${title}`;
+  const t = { id: state.nextTab++, title: `Δ ${q ?? opts.path} @ ${title.split(" ")[0]}`, diff: d.label, framed: true, clusters: [], boxes: new Map(), cam: null, layout: layoutKey(), selected: null };
+  const cl = { focus: boxes[0].id, title: label, links: d.links, dropped: 0, partial: false, diff: true, fixed: true, anchor: null, boxes };
+  for (const b of boxes) {
+    b.cluster = cl;
+    t.boxes.set(b.id, b);
+  }
+  t.clusters.push(cl);
+  place(t, cl);
+  // All of it when it fits readably, else the frame's width from just above the first changed line.
+  const all = camFor(cl.frame, 1);
+  if (all.s >= 0.6) t.cam = all;
+  else {
+    const b = boxes[0];
+    const row = Math.max(0, b.rowCache.findIndex((r) => r.bands?.some((x) => x.colour === "addBg" || x.colour === "delBg")));
+    const y = b.y + HEAD_H + BOX_PAD + row * LINE_H;
+    const top = Math.max(cl.frame.y, y - 8 * LINE_H);
+    t.cam = camFor({ x: cl.frame.x, y: top, w: cl.frame.w, h: 40 * LINE_H }, 1);
+    // Top-aligned: the width sets the zoom, so centring would leave the top of the view empty.
+    t.cam.y = 70 - top * t.cam.s;
+  }
+  pushTab(t, opts);
+  activate(t.id);
+  info(`${hits.length} of ${d.entries.length} changes · ${d.label}`);
+  return { matched: hits.map((e) => ({ name: e.name, file: e.file, change: e.change })) };
 }
 
 /**
@@ -530,12 +578,17 @@ function refsOf(text, links) {
 
 /** Lays out one cluster and puts its frame outside the tab's earlier clusters. */
 function place(tab, cl) {
-  // A file box is not laid out: it sits at the origin.
+  // A file box or a symbol diff is not laid out: its boxes stack from the origin.
   if (cl.fixed) {
-    const b = cl.boxes[0];
-    b.x = FRAME_PAD;
-    b.y = FRAME_PAD + FRAME_LABEL;
-    cl.frame = { label: cl.title, x: 0, y: 0, w: b.w + FRAME_PAD * 2, h: b.h + FRAME_PAD * 2 + FRAME_LABEL };
+    let y = FRAME_PAD + FRAME_LABEL;
+    let w = 0;
+    for (const b of cl.boxes) {
+      b.x = FRAME_PAD;
+      b.y = y;
+      y += b.h + FRAME_PAD;
+      w = Math.max(w, b.w);
+    }
+    cl.frame = { label: cl.title, x: 0, y: 0, w: w + FRAME_PAD * 2, h: y };
     cl.groups = [];
     return;
   }
@@ -571,7 +624,7 @@ function renderWorld(tab) {
     {
       boxes: tab.clusters.flatMap((c) => c.boxes),
       groups: tab.clusters.flatMap((c) => c.groups),
-      frames: multi ? tab.clusters.map((c) => c.frame) : [],
+      frames: multi || tab.framed ? tab.clusters.map((c) => c.frame) : [],
     },
     new Set(tab.clusters.map((c) => c.focus)),
   );
